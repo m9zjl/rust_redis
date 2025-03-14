@@ -1,48 +1,48 @@
+mod resp;
+mod resp_result;
+
+use tokio::net::{TcpListener, TcpStream};
+
 use std::io;
-use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
-    let mut num = 12;
-    num = 13;
-    println!("Listening on {num}");
-
-    return Result::Ok(());
-
-    // // 监听地址: 127.0.0.1:7878
-    // let listener = TcpListener::bind("127.0.0.1:8080")?;
-    // loop {
-    //     match listener.accept() {
-    //         Ok((stream, _socket_addr)) => {
-    //             tokio::spawn(handle_connection(stream));
-    //         }
-    //         Err(e) => {
-    //             eprintln!("accept error: {}", e);
-    //             continue;
-    //         }
-    //     }
-    // }
+    let listener = TcpListener::bind("127.0.0.1:6379").await?;
+    loop {
+        match listener.accept().await {
+            Ok((stream, _addr)) => {
+                tokio::spawn(process_socket(stream));
+            }
+            Err(err) => {
+                eprintln!("{}", err);
+                continue;
+            }
+        }
+    }
 }
 
-async fn handle_connection(mut stream: TcpStream) {
-    let mut buff = [0; 512];
-
+async fn process_socket(mut stream: TcpStream) {
+    let mut buffer = [0; 512];
     loop {
-        match stream.read(&mut buff) {
-            Ok(size) if size != 0 => {
-                let response = "+PONG\r\n";
-                if let Err(e) = stream.write_all(response.as_bytes()) {
-                    eprintln!("Failed to send response: {}", e);
-                };
+        match stream.read(&mut buffer).await {
+            Ok(n) if n != 0 => {
+                let response = "PONG\r\n";
+                if let Err(err) = stream.write_all(response.as_bytes()).await {
+                    eprintln!("{}", err);
+                }
             }
             Ok(_) => {
-                println!("Response: {}", String::from_utf8_lossy(&buff[..]));
+                println!("Connection closed.");
+                return;
             }
-            Err(_e) => {
-                eprintln!("Failed to read from stream");
+            Err(err) => {
+                eprintln!("{}", err);
                 return;
             }
         }
     }
 }
+
+// fn handle_connection(stream: &mut TcpStream) {
+// }
