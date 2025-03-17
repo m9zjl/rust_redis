@@ -1,8 +1,32 @@
-use crate::resp_result::{RESPError, RESPResult};
+use crate::resp_result::{RESPError, RESPResult, resp_remove_type};
+use std::fmt;
+use std::fmt::write;
+
+#[derive(Debug, PartialEq)]
+pub enum RESP {
+    SimpleString(String),
+}
+
+impl fmt::Display for RESP {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let data = match self {
+            Self::SimpleString(data) => format!("{}\r\n", data),
+        };
+        write!(f, "{}", data)
+    }
+}
 
 fn binary_extract_line_as_string(buffer: &[u8], index: &mut usize) -> RESPResult<String> {
     let line = binary_extract_line(buffer, index)?;
-    return Ok(String::from_utf8(line)?);
+    Ok(String::from_utf8(line).unwrap())
+}
+
+fn parse_simple_string(buffer: &[u8], index: &mut usize) -> RESPResult<RESP> {
+    resp_remove_type('+', buffer, index)?;
+
+    let line = binary_extract_line_as_string(buffer, index)?;
+
+    return Ok(RESP::SimpleString(line));
 }
 
 fn binary_extract_line(buffer: &[u8], index: &mut usize) -> RESPResult<Vec<u8>> {
@@ -37,7 +61,37 @@ fn binary_extract_line(buffer: &[u8], index: &mut usize) -> RESPResult<Vec<u8>> 
 
 #[cfg(test)]
 mod tests {
+    use crate::resp_result::resp_remove_type;
+
     use super::*;
+
+    #[test]
+    fn test_parse_simple_string() {
+        let buffer = "+OK\r\n".as_bytes();
+        let mut index: usize = 0;
+        let output = parse_simple_string(buffer, &mut index).unwrap();
+
+        assert_eq!(output, RESP::SimpleString(String::from("OK")));
+        assert_eq!(index, 5);
+    }
+
+    #[test]
+    fn test_binary_remove_type() {
+        let buffer = "+OK\r\n".as_bytes();
+        let mut index: usize = 0;
+        resp_remove_type('+', buffer, &mut index).unwrap();
+        assert_eq!(index, 1)
+    }
+
+    #[test]
+    fn test_binary_remove_type_error() {
+        let buffer = "*OK\r\n".as_bytes();
+        let mut index: usize = 0;
+        let error = resp_remove_type('+', buffer, &mut index).unwrap_err();
+        assert_eq!(index, 0);
+        assert_eq!(error, RESPError::WrongType);
+    }
+
     #[test]
     fn test_extract_line() {
         let result = binary_extract_line(b"get a \r\n", &mut 0);

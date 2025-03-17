@@ -3,6 +3,7 @@ mod resp_result;
 
 use tokio::net::{TcpListener, TcpStream};
 
+use crate::resp::RESP;
 use std::io;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -26,9 +27,9 @@ async fn process_socket(mut stream: TcpStream) {
     let mut buffer = [0; 512];
     loop {
         match stream.read(&mut buffer).await {
-            Ok(n) if n != 0 => {
-                let response = "PONG\r\n";
-                if let Err(err) = stream.write_all(response.as_bytes()).await {
+            Ok(size) if size != 0 => {
+                let response = RESP::SimpleString(String::from("PONG"));
+                if let Err(err) = stream.write_all(response.to_string().as_bytes()).await {
                     eprintln!("{}", err);
                 }
             }
