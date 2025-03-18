@@ -8,6 +8,7 @@ pub enum RESPError {
     OutOfBounds(usize),
     FromUtf8,
     WrongType,
+    Unknown,
 }
 pub type RESPResult<T> = Result<T, RESPError>;
 

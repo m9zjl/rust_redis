@@ -1,10 +1,31 @@
+use rand::seq::index;
+
 use crate::resp_result::{RESPError, RESPResult, resp_remove_type};
 use std::fmt;
-use std::fmt::write;
 
 #[derive(Debug, PartialEq)]
 pub enum RESP {
     SimpleString(String),
+}
+
+fn parser_router(
+    buffer: &[u8],
+    index: &mut usize,
+) -> Option<fn(&[u8], &mut usize) -> RESPResult<RESP>> {
+    return match buffer[*index] {
+        b'+' => Some(parse_simple_string),
+        _ => None,
+    };
+}
+
+pub fn bytes_to_resp(buffer: &[u8], index: &mut usize) {
+    match parser_router(buffer, index) {
+        Some(parser_func) => {
+            let result: RESP = parser_func(buffer, index);
+            OK(result)
+        }
+        None => Err(RESPError::Unknown),
+    }
 }
 
 impl fmt::Display for RESP {
